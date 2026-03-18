@@ -610,23 +610,48 @@
     }
     try {
       await window.ethereum.request({ method: "eth_requestAccounts" });
+
+      // Auto switch to Polkadot Hub Testnet
+      const chainId = "0x18FF0401"; // 420420417 in hex
+      const currentChain = await window.ethereum.request({ method: "eth_chainId" });
+
+      if (currentChain !== chainId) {
+        showToast("Switching to Polkadot Hub TestNet...", "success");
+        try {
+          await window.ethereum.request({
+            method: "wallet_switchEthereumChain",
+            params: [{ chainId }],
+          });
+        } catch (switchError) {
+          // Chain not added yet — add it automatically
+          if (switchError.code === 4902) {
+            await window.ethereum.request({
+              method: "wallet_addEthereumChain",
+              params: [{
+                chainId,
+                chainName: "Polkadot Hub TestNet",
+                nativeCurrency: { name: "PAS", symbol: "PAS", decimals: 18 },
+                rpcUrls: ["https://eth-rpc-testnet.polkadot.io/"],
+                blockExplorerUrls: ["https://blockscout-testnet.polkadot.io/"],
+              }],
+            });
+          } else {
+            throw switchError;
+          }
+        }
+      }
+
       provider = new ethers.BrowserProvider(window.ethereum);
       signer = await provider.getSigner();
       userAddress = await signer.getAddress();
       contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
 
-      // Check network
-      const network = await provider.getNetwork();
-      if (network.chainId !== 420420417n) {
-        showToast("Please switch to Polkadot Hub TestNet (Chain ID: 420420417)", "error");
-        return;
-      }
-
       const btn = document.getElementById("connectBtn");
       btn.textContent = userAddress.slice(0,6) + "..." + userAddress.slice(-4);
       btn.classList.add("connected");
+      btn.onclick = disconnectWallet;
 
-      showToast("Wallet connected!", "success");
+      showToast("Wallet connected to Polkadot Hub! 🎉", "success");
       await loadUserData();
     } catch (e) {
       showToast("Connection failed: " + e.message, "error");
@@ -782,10 +807,37 @@
     setTimeout(() => { t.className = ""; }, 4000);
   }
 
-  // Auto-connect if already connected
+  function disconnectWallet() {
+    provider = null;
+    signer = null;
+    contract = null;
+    userAddress = null;
+
+    const btn = document.getElementById("connectBtn");
+    btn.textContent = "Connect Wallet";
+    btn.classList.remove("connected");
+    btn.onclick = connectWallet;
+
+    document.getElementById("aiScoreContent").innerHTML = `<div class="connect-prompt">Connect your wallet to generate your <span>AI credit score</span></div>`;
+    document.getElementById("creditContent").innerHTML = `<div class="connect-prompt">Connect your wallet to view your <span>credit tier</span></div>`;
+    document.getElementById("loanContent").innerHTML = `<div class="connect-prompt">Connect your wallet to view your <span>loan status</span></div>`;
+    document.getElementById("borrowBtn").disabled = true;
+
+    showToast("Wallet disconnected", "success");
+  }
+
+  // Handle account/chain changes
   if (window.ethereum) {
-    window.ethereum.request({ method: "eth_accounts" }).then(accounts => {
-      if (accounts.length > 0) connectWallet();
+    window.ethereum.on("accountsChanged", (accounts) => {
+      if (accounts.length === 0) {
+        disconnectWallet();
+      } else {
+        connectWallet();
+      }
+    });
+
+    window.ethereum.on("chainChanged", () => {
+      window.location.reload();
     });
   }
 </script>
