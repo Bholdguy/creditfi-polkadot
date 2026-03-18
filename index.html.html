@@ -611,13 +611,7 @@
     try {
       await window.ethereum.request({ method: "eth_requestAccounts" });
 
-      // Check user is on correct network
-      const chainId = "0x18FF0401"; // 420420417 in hex
-      const currentChain = await window.ethereum.request({ method: "eth_chainId" });
-      if (currentChain !== chainId) {
-        showToast("Please switch to Polkadot Hub TestNet in MetaMask", "error");
-        return;
-      }
+      // Network check removed - user must be on Polkadot Hub TestNet
 
       provider = new ethers.BrowserProvider(window.ethereum);
       signer = await provider.getSigner();
