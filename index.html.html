@@ -610,7 +610,10 @@
 
       // Network check removed - user must be on Polkadot Hub TestNet
 
-      provider = new ethers.providers.Web3Provider(window.ethereum);
+      provider = new ethers.providers.Web3Provider(window.ethereum, {
+        chainId: 420420417,
+        name: "polkadot-hub-testnet"
+      });
       signer = provider.getSigner();
       userAddress = await signer.getAddress();
       contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
